@@ -325,12 +325,42 @@
             const dt = ((performance.now() - t0) / 1000).toFixed(1);
             console.log(`Fetched IMDb dataset in ${dt}s — ${fullDatasetCache.length} bytes`);
           }
-          loadFullBtn.textContent = '⚙️ Building graph (BFS-ready)…';
-          // Yield to paint
+          // Stream into wasm in chunks of CHUNK_LINES films at a time.
+          // Avoids the 9.7MB single-string-allocation path which trapped on
+          // certain emscripten/browser combinations.
+          const CHUNK_LINES = 5000;
+          const begin = mod.cwrap('sixdeg_begin', 'number', []);
+          const append = mod.cwrap('sixdeg_append', 'number', ['string']);
+          const finish = mod.cwrap('sixdeg_finish', 'number', []);
+
+          loadFullBtn.textContent = '⚙️ Indexing 0%…';
           await new Promise(r => setTimeout(r, 30));
           const t0 = performance.now();
+          begin();
+          const lines = fullDatasetCache.split('\n');
+          for (let i = 0; i < lines.length; i += CHUNK_LINES) {
+            const chunk = lines.slice(i, i + CHUNK_LINES).join('\n');
+            const ok = append(chunk);
+            const pct = Math.min(100, Math.round((i + CHUNK_LINES) / lines.length * 100));
+            loadFullBtn.textContent = `⚙️ Indexing ${pct}% (${(i + CHUNK_LINES).toLocaleString()} films)…`;
+            // Yield to the event loop every chunk so the badge actually updates
+            await new Promise(r => setTimeout(r, 0));
+          }
+          finish();
+
+          // Update the textarea + display stats (mirrors what reloadGraph does)
           $('movies').value = fullDatasetCache;
-          reloadGraph();
+          $('loadStatus').className = 'ok';
+          filmCount = mod._sixdeg_actor_count() > 0 ? lines.length : 0;
+          // Recount films from the dataset content (not the textarea — that's slow)
+          filmCount = lines.filter(l => {
+            const trimmed = l.trim();
+            return trimmed && !trimmed.startsWith('#');
+          }).length;
+          $('stat-films').textContent = filmCount.toLocaleString();
+          $('stat-actors').textContent = mod._sixdeg_actor_count().toLocaleString();
+          $('loadStatus').textContent = `✓ ${filmCount.toLocaleString()} films, ${mod._sixdeg_actor_count().toLocaleString()} actors`;
+
           const dt = ((performance.now() - t0) / 1000).toFixed(1);
           datasetBadge.textContent = `Loaded: full IMDb (${filmCount.toLocaleString()} films · ${mod._sixdeg_actor_count().toLocaleString()} actors · built in ${dt}s)`;
           datasetBadge.style.background = '#dcfce7';
@@ -346,6 +376,7 @@
           datasetBadge.textContent = `Failed: ${err && err.message ? err.message : String(err)}`;
           datasetBadge.style.background = '#fee2e2';
           datasetBadge.style.color = '#991b1b';
+          console.error('Full dataset load failed:', err);
         }
       });
 

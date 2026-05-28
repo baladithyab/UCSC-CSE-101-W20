@@ -162,6 +162,9 @@ if [ -f "$SIXDEG_SHIM_DIR/sixdegrees-wasm.cpp" ] && [ -d "$SIXDEG_SRC_DIR" ]; th
     -s ABORTING_MALLOC=0 \
     -s EXPORTED_FUNCTIONS='[
       "_sixdeg_load",
+      "_sixdeg_begin",
+      "_sixdeg_append",
+      "_sixdeg_finish",
       "_sixdeg_query",
       "_sixdeg_path_length",
       "_sixdeg_path_get",
