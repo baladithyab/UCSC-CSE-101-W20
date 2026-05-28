@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light only" />
+  <title>Six Degrees BFS (WASM, real CSE 101 C++)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #111;
+      background: #fafaf9;
+      padding: 1rem;
+    }
+    h1 { margin: 0 0 .25rem 0; font-size: 1.05rem; font-weight: 600; }
+    h1 small {
+      color: #555;
+      font-weight: 400;
+      font-size: .85em;
+      margin-left: .35em;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 1rem;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      padding: .75rem;
+    }
+    .row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; flex-wrap: wrap; }
+    label { font-size: .75rem; color: #555; }
+    input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      padding: .25rem .5rem;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      font: inherit;
+    }
+    button {
+      font: inherit;
+      padding: .35rem .7rem;
+      border: 1px solid #aaa;
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #f4f4f5; }
+    button.primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+    button.primary:hover { background: #1e3a8a; }
+    button.preset {
+      font-size: .7rem;
+      padding: .15rem .4rem;
+    }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: .35rem .5rem;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      font: 11px/1.4 ui-monospace, monospace;
+    }
+    .path-display {
+      min-height: 200px;
+      padding: 1rem;
+      background: #fafaf9;
+      border: 1px solid #e4e4e7;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .path-step {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+    }
+    .path-actor {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      background: #1d4ed8;
+      color: #fff;
+      border-radius: 1rem;
+      font-weight: 500;
+      font-size: 12px;
+    }
+    .path-movie {
+      display: inline-block;
+      padding: 0.05rem 0.4rem;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 0.25rem;
+      font-style: italic;
+      font-size: 11px;
+    }
+    .path-arrow { color: #71717a; }
+    .err { color: #dc2626; }
+    .ok { color: #15803d; }
+    .stats {
+      font-size: .72rem;
+      color: #555;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.6;
+    }
+    .stats > div { display: block; }
+    .stats dt { display: inline; font-weight: 600; }
+    .stats dt::after { content: ":"; }
+    .stats dd { display: inline; margin: 0 .8em 0 .25em; }
+    .footer-note {
+      font-size: .7rem;
+      color: #71717a;
+      margin-top: .5rem;
+      line-height: 1.5;
+    }
+    .footer-note a { color: #1d4ed8; }
+    details summary { cursor: pointer; font-size: .85em; color: #555; }
+    details[open] summary { margin-bottom: .5em; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div>
+      <h1>HW4 Six-Degrees BFS <small>WebAssembly · real CSE 101 C++</small></h1>
+      <div id="result" class="path-display" aria-live="polite">
+        <span style="color:#a1a1aa;">Loading WASM…</span>
+      </div>
+
+      <details style="margin-top: .75rem;">
+        <summary>Movie list (graph data — edit to add your own films)</summary>
+        <textarea id="movies" spellcheck="false"></textarea>
+        <div class="row" style="margin-top: .5rem;">
+          <button id="reload" class="primary">Reload graph</button>
+          <span id="loadStatus" style="font-size: .8rem;"></span>
+        </div>
+      </details>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="display:block;">
+        <label for="src">From actor</label>
+        <input id="src" type="text" placeholder="Tom_Cruise" autocomplete="off" />
+      </div>
+      <div class="row" style="display:block;">
+        <label for="dest">To actor</label>
+        <input id="dest" type="text" placeholder="Brad_Pitt" autocomplete="off" />
+      </div>
+      <div class="row">
+        <button id="query" class="primary">Find path</button>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: .5rem 0;" />
+      <div class="row" style="display:block; margin-bottom: 0;">
+        <span style="font-size: .7rem; color: #555; display: block; margin-bottom: .35rem;">Try these:</span>
+        <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: stretch;">
+          <button class="preset" data-from="John_Travolta" data-to="Uma_Thurman">Travolta → Thurman</button>
+          <button class="preset" data-from="Tom_Cruise" data-to="Brad_Pitt">Cruise → Pitt</button>
+          <button class="preset" data-from="Frances_McDormand" data-to="Cillian_Murphy">McDormand → Murphy</button>
+          <button class="preset" data-from="Frances_McDormand" data-to="Rami_Malek">McDormand → Malek</button>
+          <button class="preset" data-from="Bill_Murray" data-to="Ana_de_Armas">Bill Murray → Ana de Armas</button>
+          <button class="preset" data-from="Christian_Bale" data-to="Margot_Robbie">Bale → Robbie</button>
+        </div>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: .5rem 0;" />
+      <dl class="stats">
+        <div><dt>Films loaded</dt><dd id="stat-films">0</dd></div>
+        <div><dt>Distinct actors</dt><dd id="stat-actors">0</dd></div>
+        <div><dt>Last path length</dt><dd id="stat-pathlen">—</dd></div>
+        <div><dt>Hops</dt><dd id="stat-hops">—</dd></div>
+      </dl>
+
+      <p class="footer-note">
+        BFS shortest path through actor/movie graph. Algorithm:
+        <a href="https://github.com/baladithyab/UCSC-CSE-101-W20/blob/master/hw4/Sixdegrees/graph.cpp"
+           target="_blank" rel="noopener">hw4/Sixdegrees/graph.cpp</a>,
+        compiled with Emscripten.
+      </p>
+    </div>
+  </div>
+
+  <script src="./sixdegrees.js"></script>
+  <script>
+    (() => {
+      'use strict';
+      const $ = (id) => document.getElementById(id);
+      const result = $('result');
+      let mod = null;
+      let load, query, lastErr;
+      let filmCount = 0;
+
+      function renderPath(path, fromActor) {
+        result.innerHTML = '';
+        if (!path || path.length === 0) {
+          result.innerHTML = '<span class="err">No path found.</span>';
+          return;
+        }
+        if (path.length === 1) {
+          const span = document.createElement('span');
+          span.className = 'path-actor';
+          span.textContent = path[0];
+          result.appendChild(span);
+          result.appendChild(document.createTextNode(' (same actor)'));
+          return;
+        }
+
+        // Render alternating actor/movie/actor/...
+        for (let i = 0; i < path.length; i++) {
+          const item = path[i];
+          const isActor = (i % 2 === 0);
+          const span = document.createElement('span');
+          span.className = isActor ? 'path-actor' : 'path-movie';
+          span.textContent = item.replace(/_/g, ' ');
+          result.appendChild(span);
+          if (i < path.length - 1) {
+            const arrow = document.createElement('span');
+            arrow.className = 'path-arrow';
+            arrow.textContent = ' → ';
+            result.appendChild(arrow);
+          }
+        }
+
+        // Hop count = number of movie steps in the path = (length-1)/2
+        const hops = Math.floor((path.length - 1) / 2);
+        $('stat-pathlen').textContent = path.length;
+        $('stat-hops').textContent = hops;
+      }
+
+      function reloadGraph() {
+        if (!mod) return;
+        const text = $('movies').value;
+        const ok = load(text);
+        if (!ok) {
+          $('loadStatus').className = 'err';
+          $('loadStatus').textContent = '✗ ' + lastErr();
+          return;
+        }
+        $('loadStatus').className = 'ok';
+        // Count non-comment, non-blank lines
+        const lines = text.split('\n');
+        filmCount = lines.filter(l => l.trim() && !l.trim().startsWith('#')).length;
+        $('stat-films').textContent = filmCount;
+        $('stat-actors').textContent = mod._sixdeg_actor_count();
+        $('loadStatus').textContent = `✓ ${filmCount} films, ${mod._sixdeg_actor_count()} actors`;
+        result.innerHTML = '<span style="color:#a1a1aa;">Graph loaded. Pick a query →</span>';
+      }
+
+      function runQuery() {
+        if (!mod) return;
+        const src = $('src').value.trim().replace(/ /g, '_');
+        const dest = $('dest').value.trim().replace(/ /g, '_');
+        if (!src || !dest) {
+          result.innerHTML = '<span class="err">Both fields required.</span>';
+          return;
+        }
+        const ok = query(src, dest);
+        if (!ok) {
+          result.innerHTML = `<span class="err">${lastErr()}</span>`;
+          $('stat-pathlen').textContent = '—';
+          $('stat-hops').textContent = '—';
+          return;
+        }
+        const len = mod._sixdeg_path_length();
+        const path = [];
+        for (let i = 0; i < len; i++) {
+          path.push(mod.UTF8ToString(mod._sixdeg_path_get(i)));
+        }
+        renderPath(path, src);
+      }
+
+      // Bind UI
+      $('query').addEventListener('click', runQuery);
+      $('src').addEventListener('keydown', (e) => { if (e.key === 'Enter') runQuery(); });
+      $('dest').addEventListener('keydown', (e) => { if (e.key === 'Enter') runQuery(); });
+      $('reload').addEventListener('click', reloadGraph);
+      document.querySelectorAll('.preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          $('src').value = btn.dataset.from;
+          $('dest').value = btn.dataset.to;
+          runQuery();
+        });
+      });
+
+      // Bootstrap
+      if (typeof createSixdegModule !== 'function') {
+        result.innerHTML = '<span class="err">FATAL: sixdegrees.js failed to load</span>';
+        return;
+      }
+      // Fetch the bundled movie list (relative to the HTML).
+      Promise.all([
+        createSixdegModule(),
+        fetch('movies.txt').then(r => r.ok ? r.text() : Promise.reject(`HTTP ${r.status}`))
+      ]).then(([m, moviesText]) => {
+        mod = m;
+        load = m.cwrap('sixdeg_load', 'number', ['string']);
+        query = m.cwrap('sixdeg_query', 'number', ['string', 'string']);
+        lastErr = () => m.UTF8ToString(m._sixdeg_last_error());
+        $('movies').value = moviesText;
+        reloadGraph();
+        // Default query
+        $('src').value = 'John_Travolta';
+        $('dest').value = 'Uma_Thurman';
+        runQuery();
+      }).catch((err) => {
+        result.innerHTML = `<span class="err">Boot failed: ${err && err.message ? err.message : String(err)}</span>`;
+      });
+    })();
+  </script>
+</body>
+</html>

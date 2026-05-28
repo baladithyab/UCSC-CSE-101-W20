@@ -134,8 +134,55 @@ else
   echo "::warning::missing $AVL_SRC_DIR or $AVL_SHIM_DIR; skipping AVL Wordrange build"
 fi
 
-# ---------- Sixdegrees BFS (HW4) — TODO ---------------------------------
-# Future: compile hw4/Sixdegrees/graph.cpp + a wasm shim.
+# ---------- Sixdegrees BFS (HW4) ----------------------------------------
+# Compiles hw4/Sixdegrees/graph.cpp + the wasm shim into
+# sixdegrees.{js,wasm}. The bundled movies.txt is a hand-curated
+# synthetic dataset shipped alongside the demo (NOT the original
+# 10MB cleaned_movielist.txt — that's IMDb-derived and too large).
+SIXDEG_SRC_DIR="hw4/Sixdegrees"
+SIXDEG_SHIM_DIR="embeds-wasm/sixdegrees"
+if [ -f "$SIXDEG_SHIM_DIR/sixdegrees-wasm.cpp" ] && [ -d "$SIXDEG_SRC_DIR" ]; then
+  echo
+  echo "── Sixdegrees BFS ─────────────────────────────────────────"
+
+  emcc \
+    "$SIXDEG_SRC_DIR/graph.cpp" \
+    "$SIXDEG_SHIM_DIR/sixdegrees-wasm.cpp" \
+    -I "$SIXDEG_SRC_DIR" \
+    -I "$SIXDEG_SHIM_DIR" \
+    -O3 \
+    -std=gnu++2a \
+    -s MODULARIZE=1 \
+    -s EXPORT_NAME='createSixdegModule' \
+    -s ENVIRONMENT='web' \
+    -s ALLOW_MEMORY_GROWTH=1 \
+    -s INITIAL_MEMORY=4194304 \
+    -s STACK_SIZE=1048576 \
+    -s EXPORTED_FUNCTIONS='[
+      "_sixdeg_load",
+      "_sixdeg_query",
+      "_sixdeg_path_length",
+      "_sixdeg_path_get",
+      "_sixdeg_actor_count",
+      "_sixdeg_last_error",
+      "_malloc",
+      "_free"
+    ]' \
+    -s EXPORTED_RUNTIME_METHODS='["UTF8ToString","stringToUTF8","HEAPU8","ccall","cwrap"]' \
+    -s SINGLE_FILE=0 \
+    --closure 0 \
+    -o "$DEST/sixdegrees.js"
+
+  cp "$SIXDEG_SHIM_DIR/sixdegrees.html" "$DEST/sixdegrees.html"
+  cp "$SIXDEG_SHIM_DIR/movies.txt"      "$DEST/movies.txt"
+
+  echo "  ✓ $DEST/sixdegrees.js   ($(stat -c%s "$DEST/sixdegrees.js" 2>/dev/null || stat -f%z "$DEST/sixdegrees.js") bytes)"
+  echo "  ✓ $DEST/sixdegrees.wasm ($(stat -c%s "$DEST/sixdegrees.wasm" 2>/dev/null || stat -f%z "$DEST/sixdegrees.wasm") bytes)"
+  echo "  ✓ $DEST/sixdegrees.html"
+  echo "  ✓ $DEST/movies.txt"
+else
+  echo "::warning::missing $SIXDEG_SRC_DIR or $SIXDEG_SHIM_DIR; skipping Sixdegrees BFS build"
+fi
 
 echo
 echo "Build script complete"

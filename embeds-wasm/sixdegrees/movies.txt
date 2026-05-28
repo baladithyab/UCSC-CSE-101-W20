@@ -1,0 +1,45 @@
+# Synthetic movie list for the Sixdegrees BFS demo.
+#
+# This is a *deliberately mixed* dataset. Most films are real and
+# their casts are ~accurate (simplified to 3-4 leads). A few films
+# marked with a "*" suffix in the title are fictional — added to
+# create more interesting BFS paths between real actors. NO IMDb
+# data is used; treat this as a pedagogical graph, not ground truth.
+#
+# Format matches the original course input:
+#
+#   <Movie_Title> <Actor1> <Actor2> [Actor3 ...]
+#
+# (Underscores in names because the course parser splits on whitespace.)
+Pulp_Fiction John_Travolta Samuel_L_Jackson Uma_Thurman Bruce_Willis
+Kill_Bill Uma_Thurman Lucy_Liu David_Carradine
+Reservoir_Dogs Harvey_Keitel Tim_Roth Steve_Buscemi Michael_Madsen
+Once_Upon_a_Time_in_Hollywood Leonardo_DiCaprio Brad_Pitt Margot_Robbie Al_Pacino
+The_Hateful_Eight Samuel_L_Jackson Kurt_Russell Jennifer_Jason_Leigh Tim_Roth Michael_Madsen
+Inception Leonardo_DiCaprio Joseph_Gordon_Levitt Ellen_Page Tom_Hardy
+The_Dark_Knight Christian_Bale Heath_Ledger Aaron_Eckhart Maggie_Gyllenhaal
+Interstellar Matthew_McConaughey Anne_Hathaway Jessica_Chastain
+Dunkirk Tom_Hardy Cillian_Murphy Mark_Rylance Harry_Styles
+Oppenheimer Cillian_Murphy Robert_Downey_Jr Matt_Damon Emily_Blunt
+The_Avengers Robert_Downey_Jr Chris_Evans Scarlett_Johansson Mark_Ruffalo
+Lost_in_Translation Bill_Murray Scarlett_Johansson
+Black_Widow Scarlett_Johansson Florence_Pugh David_Harbour
+Iron_Man Robert_Downey_Jr Gwyneth_Paltrow Jeff_Bridges
+The_Big_Lebowski Jeff_Bridges John_Goodman Steve_Buscemi Julianne_Moore
+Fargo Frances_McDormand William_H_Macy Steve_Buscemi
+Three_Billboards Frances_McDormand Sam_Rockwell Woody_Harrelson
+Moonrise_Kingdom Bill_Murray Bruce_Willis Tilda_Swinton Edward_Norton
+The_Grand_Budapest_Hotel Ralph_Fiennes Tilda_Swinton Edward_Norton Bill_Murray
+Birdman Michael_Keaton Edward_Norton Emma_Stone Naomi_Watts
+La_La_Land Ryan_Gosling Emma_Stone John_Legend
+Drive Ryan_Gosling Carey_Mulligan Bryan_Cranston
+Blade_Runner_2049 Ryan_Gosling Harrison_Ford Ana_de_Armas
+Knives_Out Ana_de_Armas Daniel_Craig Chris_Evans
+No_Time_to_Die Daniel_Craig Rami_Malek Lea_Seydoux
+Bohemian_Rhapsody Rami_Malek Lucy_Boynton Gwilym_Lee
+Whiplash Miles_Teller J_K_Simmons
+Top_Gun_Maverick Tom_Cruise Miles_Teller Jennifer_Connelly
+Mission_Impossible Tom_Cruise Ving_Rhames Simon_Pegg
+Pulp_Fiction_2* John_Travolta Tom_Cruise Samuel_L_Jackson
+Once_Upon_a_Time_in_Tokyo* Brad_Pitt Tom_Cruise Bill_Murray
+Babylon Brad_Pitt Margot_Robbie Tobey_Maguire

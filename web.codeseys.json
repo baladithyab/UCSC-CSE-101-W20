@@ -9,7 +9,7 @@
     "year": 2020
   },
   "title": "CSE 101 — Algorithms (UCSC, Winter 2020)",
-  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. Both demos run the original course C++ unmodified — N-Queens uses hw2/NQueens/Board.cpp + Queens.cpp; AVL Wordrange uses hw3/Wordrange/AVL.cpp — compiled to WebAssembly with thin step-by-step iterator shims. The JavaScript layer only handles rendering; the algorithms themselves are exactly what was submitted for grading in 2020.",
+  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. All three demos run the original course C++ unmodified — N-Queens uses hw2/NQueens/Board.cpp + Queens.cpp; AVL Wordrange uses hw3/Wordrange/AVL.cpp; Six-Degrees BFS uses hw4/Sixdegrees/graph.cpp — compiled to WebAssembly with thin step-by-step iterator shims. The JavaScript layer only handles rendering; the algorithms themselves are exactly what was submitted for grading in 2020.",
   "tags": [
     "algorithms",
     "data-structures",
@@ -41,6 +41,16 @@
       "embed": {
         "kind": "static-html",
         "entry": "avl-wordrange.html"
+      }
+    },
+    {
+      "id": "sixdegrees",
+      "title": "HW4 — Six-Degrees BFS (real C++ → WASM)",
+      "group": "Demos",
+      "description": "Find the shortest path between any two actors in a movie graph using BFS. The graph.cpp from the original course is compiled to WebAssembly; JavaScript handles only the input form and rendering. Bundled with a small synthetic movie list (~40 films, ~70 actors); paste your own edge list to explore custom graphs. The original course used a 10MB IMDb-derived dataset that we deliberately do NOT ship — the algorithm is the interesting part.",
+      "embed": {
+        "kind": "static-html",
+        "entry": "sixdegrees.html"
       }
     }
   ],
