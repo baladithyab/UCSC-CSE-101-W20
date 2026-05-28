@@ -156,8 +156,9 @@ if [ -f "$SIXDEG_SHIM_DIR/sixdegrees-wasm.cpp" ] && [ -d "$SIXDEG_SRC_DIR" ]; th
     -s EXPORT_NAME='createSixdegModule' \
     -s ENVIRONMENT='web' \
     -s ALLOW_MEMORY_GROWTH=1 \
-    -s INITIAL_MEMORY=67108864 \
-    -s STACK_SIZE=2097152 \
+    -s INITIAL_MEMORY=268435456 \
+    -s STACK_SIZE=4194304 \
+    -s MAXIMUM_MEMORY=2147483648 \
     -s EXPORTED_FUNCTIONS='[
       "_sixdeg_load",
       "_sixdeg_query",

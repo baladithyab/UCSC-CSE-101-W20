@@ -25,6 +25,7 @@
 #include <list>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -62,7 +63,11 @@ int sixdeg_load(const char* text) {
     std::istringstream in(text);
     std::string line;
     int films = 0;
+    std::unordered_set<std::string> distinctActors;
+    distinctActors.reserve(80000);
     while (std::getline(in, line)) {
+        // Strip trailing \r (the original cleaned_movielist.txt has CRLF endings).
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty()) continue;
         // Skip comment lines that start with '#'.
         bool allSpace = true;
@@ -81,31 +86,11 @@ int sixdeg_load(const char* text) {
         // graph.insert expects [movie, actor1, actor2, ...]; the
         // original parser passes the same vector.
         g_graph->insert(tokens);
+        for (size_t i = 1; i < tokens.size(); ++i) distinctActors.insert(tokens[i]);
         ++films;
     }
 
-    // Count distinct actors via a separate API: graph.h doesn't expose
-    // a count directly, but `printMap` walks the unordered_map. We
-    // approximate by re-walking with our own structure — but to keep
-    // graph.h unmodified we just re-parse and count.
-    {
-        std::istringstream in2(text);
-        std::vector<std::string> seen;
-        std::string line2;
-        while (std::getline(in2, line2)) {
-            if (line2.empty() || line2[0] == '#') continue;
-            std::istringstream ls(line2);
-            std::vector<std::string> tokens;
-            std::string t;
-            while (ls >> t) tokens.push_back(t);
-            for (size_t i = 1; i < tokens.size(); ++i) {
-                bool found = false;
-                for (const auto& s : seen) if (s == tokens[i]) { found = true; break; }
-                if (!found) seen.push_back(tokens[i]);
-            }
-        }
-        g_actorCount = (int)seen.size();
-    }
+    g_actorCount = (int)distinctActors.size();
 
     if (films == 0) {
         g_lastError = "no films parsed";
