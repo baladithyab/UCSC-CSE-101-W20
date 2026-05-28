@@ -1,0 +1,21 @@
+name: build web embed
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'embeds/**'
+      - 'web.codeseys.json'
+      - '.github/workflows/build-web-asset.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: baladithyab/web-embed-workflows/.github/workflows/static-passthrough.yml@main
+    with:
+      manifest: web.codeseys.json
+      source-dir: 'embeds'
+    secrets: inherit
+    permissions:
+      contents: write
+      pull-requests: write

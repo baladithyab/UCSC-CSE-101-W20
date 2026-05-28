@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <title>AVL Tree Wordrange — CSE 101 HW3</title>
+    <style>
+      :root {
+        --bg: #fafafa;
+        --node: #3b82f6;
+        --node-text: white;
+        --node-rotated: #f59e0b;
+        --node-in-range: #059669;
+        --edge: #94a3b8;
+        --text: #111827;
+        --muted: #6b7280;
+        --accent: #3b82f6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+      }
+      header h1 { margin: 0 0 0.25rem; font-size: 1.125rem; font-weight: 600; }
+      header p { margin: 0; font-size: 0.8125rem; color: var(--muted); line-height: 1.5; }
+      .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; font-size: 0.8125rem; }
+      .row input[type='text'] {
+        padding: 0.4rem 0.625rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        font-size: 0.8125rem;
+        font-family: ui-monospace, monospace;
+      }
+      .row button {
+        background: var(--accent);
+        color: white;
+        border: 0;
+        padding: 0.45rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .row button.secondary {
+        background: white;
+        color: var(--text);
+        border: 1px solid #d1d5db;
+      }
+      .row button:hover { filter: brightness(0.95); }
+      .stats {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .stats strong { color: var(--text); font-variant-numeric: tabular-nums; }
+      #tree-wrap {
+        overflow-x: auto;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      svg { display: block; }
+      circle.node { fill: var(--node); cursor: default; transition: fill 200ms; }
+      circle.node.rotated { fill: var(--node-rotated); }
+      circle.node.in-range { fill: var(--node-in-range); }
+      text.node-label { fill: var(--node-text); font-family: ui-monospace, monospace; font-size: 11px; pointer-events: none; }
+      line.edge { stroke: var(--edge); stroke-width: 1.5; }
+      .log { max-height: 8rem; overflow-y: auto; font-family: ui-monospace, monospace; font-size: 0.6875rem; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem; line-height: 1.5; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>AVL Tree Wordrange Queries</h1>
+      <p>
+        Self-balancing BST of strings. Insert words, watch the tree rotate to maintain balance.
+        Range query highlights every word that falls between two endpoints (lexicographic).
+      </p>
+    </header>
+
+    <div class="row">
+      <input id="word-input" type="text" placeholder="word to insert" />
+      <button id="insert-btn">Insert</button>
+      <button id="seed-btn" class="secondary">Seed sample</button>
+      <button id="clear-btn" class="secondary">Clear</button>
+    </div>
+
+    <div class="row">
+      <input id="range-low" type="text" placeholder="from (e.g. apple)" style="width: 8rem" />
+      <input id="range-hi" type="text" placeholder="to (e.g. mango)" style="width: 8rem" />
+      <button id="range-btn">Range query</button>
+      <span id="range-result" style="font-size: 0.75rem; color: var(--muted); font-family: ui-monospace, monospace;"></span>
+    </div>
+
+    <div class="stats">
+      <span>Words: <strong id="stat-count">0</strong></span>
+      <span>Height: <strong id="stat-height">0</strong></span>
+      <span>Rotations: <strong id="stat-rotations">0</strong></span>
+    </div>
+
+    <div id="tree-wrap">
+      <svg id="tree-svg" width="800" height="400"></svg>
+    </div>
+
+    <div id="log" class="log" aria-live="polite"></div>
+
+    <script type="module">
+      // AVL tree of strings — exact same algorithm as the HW3 C++ AVL.
+      // Insertion does the standard rotate-LL / RR / LR / RL fixups when
+      // |balance(node)| > 1.
+      //
+      // A "rotation" event is logged + a transient highlight is drawn so
+      // the visual learner can see the tree restructuring.
+
+      const $ = (id) => document.getElementById(id)
+      const svg = $('tree-svg')
+      const SVG_NS = 'http://www.w3.org/2000/svg'
+
+      const state = {
+        root: null,
+        rotations: 0,
+        recentlyRotated: new Set(),
+        inRange: new Set(),
+      }
+
+      function newNode(word) {
+        return { word, height: 1, left: null, right: null }
+      }
+      function height(n) { return n ? n.height : 0 }
+      function update(n) { n.height = 1 + Math.max(height(n.left), height(n.right)) }
+      function balance(n) { return n ? height(n.left) - height(n.right) : 0 }
+
+      function rotateRight(y) {
+        const x = y.left
+        const t2 = x.right
+        x.right = y
+        y.left = t2
+        update(y)
+        update(x)
+        state.rotations += 1
+        state.recentlyRotated.add(x.word).add(y.word)
+        log(`rotate-right at ${y.word} → root becomes ${x.word}`)
+        return x
+      }
+      function rotateLeft(x) {
+        const y = x.right
+        const t2 = y.left
+        y.left = x
+        x.right = t2
+        update(x)
+        update(y)
+        state.rotations += 1
+        state.recentlyRotated.add(x.word).add(y.word)
+        log(`rotate-left at ${x.word} → root becomes ${y.word}`)
+        return y
+      }
+
+      function insert(node, word) {
+        if (!node) return newNode(word)
+        if (word < node.word) node.left = insert(node.left, word)
+        else if (word > node.word) node.right = insert(node.right, word)
+        else return node
+        update(node)
+        const b = balance(node)
+        if (b > 1 && word < node.left.word) return rotateRight(node)
+        if (b < -1 && word > node.right.word) return rotateLeft(node)
+        if (b > 1 && word > node.left.word) {
+          node.left = rotateLeft(node.left)
+          return rotateRight(node)
+        }
+        if (b < -1 && word < node.right.word) {
+          node.right = rotateRight(node.right)
+          return rotateLeft(node)
+        }
+        return node
+      }
+
+      function* inOrderRange(node, lo, hi) {
+        if (!node) return
+        if (node.word > lo) yield* inOrderRange(node.left, lo, hi)
+        if (node.word >= lo && node.word <= hi) yield node.word
+        if (node.word < hi) yield* inOrderRange(node.right, lo, hi)
+      }
+
+      // Layout: standard "compute subtree widths" approach.
+      function layout(node, depth = 0, x = 0) {
+        if (!node) return { width: 0, nodes: [] }
+        const left = layout(node.left, depth + 1, x)
+        const myX = x + left.width
+        const right = layout(node.right, depth + 1, myX + 1)
+        const nodes = [...left.nodes, ...right.nodes, { node, x: myX, depth }]
+        return { width: left.width + 1 + right.width, nodes }
+      }
+
+      function render() {
+        svg.innerHTML = ''
+        const { width, nodes } = layout(state.root)
+        const cellW = 60
+        const cellH = 60
+        const padX = 30
+        const padY = 30
+        const svgW = Math.max(800, width * cellW + padX * 2)
+        const svgH = Math.max(200, ((state.root ? state.root.height : 0) + 1) * cellH + padY * 2)
+        svg.setAttribute('width', svgW)
+        svg.setAttribute('height', svgH)
+        svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`)
+
+        const positions = new Map()
+        for (const { node, x, depth } of nodes) {
+          positions.set(node, { px: padX + x * cellW, py: padY + depth * cellH })
+        }
+        // edges first
+        for (const { node } of nodes) {
+          const p = positions.get(node)
+          for (const child of [node.left, node.right]) {
+            if (!child) continue
+            const cp = positions.get(child)
+            const line = document.createElementNS(SVG_NS, 'line')
+            line.setAttribute('class', 'edge')
+            line.setAttribute('x1', p.px)
+            line.setAttribute('y1', p.py)
+            line.setAttribute('x2', cp.px)
+            line.setAttribute('y2', cp.py)
+            svg.appendChild(line)
+          }
+        }
+        // nodes on top
+        for (const { node } of nodes) {
+          const p = positions.get(node)
+          const circle = document.createElementNS(SVG_NS, 'circle')
+          let cls = 'node'
+          if (state.recentlyRotated.has(node.word)) cls += ' rotated'
+          if (state.inRange.has(node.word)) cls += ' in-range'
+          circle.setAttribute('class', cls)
+          circle.setAttribute('cx', p.px)
+          circle.setAttribute('cy', p.py)
+          circle.setAttribute('r', 18)
+          svg.appendChild(circle)
+          const text = document.createElementNS(SVG_NS, 'text')
+          text.setAttribute('class', 'node-label')
+          text.setAttribute('x', p.px)
+          text.setAttribute('y', p.py + 4)
+          text.setAttribute('text-anchor', 'middle')
+          text.textContent = node.word.length > 8 ? node.word.slice(0, 7) + '…' : node.word
+          svg.appendChild(text)
+        }
+
+        $('stat-count').textContent = nodes.length
+        $('stat-height').textContent = state.root ? state.root.height : 0
+        $('stat-rotations').textContent = state.rotations
+      }
+
+      function log(msg) {
+        const div = document.createElement('div')
+        div.textContent = msg
+        $('log').appendChild(div)
+        $('log').scrollTop = $('log').scrollHeight
+      }
+
+      function doInsert(word) {
+        word = word.trim().toLowerCase()
+        if (!word) return
+        state.recentlyRotated.clear()
+        state.inRange.clear()
+        state.root = insert(state.root, word)
+        log(`inserted ${word}`)
+        render()
+        // Clear rotation highlight after a beat.
+        setTimeout(() => {
+          state.recentlyRotated.clear()
+          render()
+        }, 1200)
+      }
+
+      function doRange() {
+        const lo = $('range-low').value.trim().toLowerCase()
+        const hi = $('range-hi').value.trim().toLowerCase()
+        if (!lo || !hi) return
+        state.recentlyRotated.clear()
+        state.inRange.clear()
+        const found = []
+        for (const w of inOrderRange(state.root, lo, hi)) {
+          state.inRange.add(w)
+          found.push(w)
+        }
+        $('range-result').textContent = found.length
+          ? `${found.length} words: ${found.slice(0, 8).join(', ')}${found.length > 8 ? ', …' : ''}`
+          : 'no words in range'
+        render()
+      }
+
+      function clearTree() {
+        state.root = null
+        state.rotations = 0
+        state.recentlyRotated.clear()
+        state.inRange.clear()
+        $('log').innerHTML = ''
+        $('range-result').textContent = ''
+        render()
+      }
+
+      $('insert-btn').addEventListener('click', () => {
+        doInsert($('word-input').value)
+        $('word-input').value = ''
+        $('word-input').focus()
+      })
+      $('word-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          $('insert-btn').click()
+        }
+      })
+      $('range-btn').addEventListener('click', doRange)
+      $('clear-btn').addEventListener('click', clearTree)
+      $('seed-btn').addEventListener('click', () => {
+        clearTree()
+        const seeds = ['apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grape', 'honeydew', 'kiwi', 'lemon', 'mango', 'nectarine', 'orange', 'papaya']
+        // Insert in shuffled order so rotations actually happen.
+        const shuffled = [...seeds].sort(() => Math.random() - 0.5)
+        for (const w of shuffled) doInsert(w)
+      })
+
+      render()
+    </script>
+  </body>
+</html>

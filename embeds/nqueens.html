@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <title>N-Queens Visualizer — CSE 101 HW2</title>
+    <style>
+      :root {
+        --bg: #fafafa;
+        --board-light: #f0d9b5;
+        --board-dark: #b58863;
+        --queen: #1f2937;
+        --queen-attacked: #dc2626;
+        --queen-placed: #059669;
+        --accent: #3b82f6;
+        --text: #111827;
+        --muted: #6b7280;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      header h1 {
+        margin: 0 0 0.25rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+      header p {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        font-size: 0.8125rem;
+      }
+      .controls label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .controls input[type='range'] {
+        width: 120px;
+      }
+      .controls button {
+        background: var(--accent);
+        color: white;
+        border: 0;
+        padding: 0.5rem 0.875rem;
+        border-radius: 0.375rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .controls button[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .controls button:hover:not([disabled]) {
+        background: #2563eb;
+      }
+      .controls button.secondary {
+        background: white;
+        color: var(--text);
+        border: 1px solid #d1d5db;
+      }
+      .controls button.secondary:hover:not([disabled]) {
+        background: #f3f4f6;
+      }
+      .stats {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .stats span strong {
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+      #board-wrap {
+        display: flex;
+        justify-content: center;
+      }
+      canvas {
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-radius: 0.5rem;
+      }
+      .log {
+        max-height: 8rem;
+        overflow-y: auto;
+        font-family: ui-monospace, monospace;
+        font-size: 0.6875rem;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+      .log .placed {
+        color: var(--queen-placed);
+      }
+      .log .backtrack {
+        color: var(--queen-attacked);
+      }
+      .log .solved {
+        color: var(--accent);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>N-Queens Visualizer</h1>
+      <p>
+        Place N queens on an N×N board such that no two attack each other. Watch the backtracker
+        place queens column by column — green when placed, red when conflict, dotted when
+        backtracking.
+      </p>
+    </header>
+
+    <div class="controls">
+      <label>
+        N
+        <input id="n-slider" type="range" min="4" max="12" value="8" />
+        <span id="n-value">8</span>
+      </label>
+      <label>
+        Speed
+        <input id="speed-slider" type="range" min="1" max="100" value="40" />
+      </label>
+      <button id="solve-btn">Solve</button>
+      <button id="step-btn" class="secondary">Step</button>
+      <button id="reset-btn" class="secondary">Reset</button>
+    </div>
+
+    <div class="stats">
+      <span>Steps: <strong id="stat-steps">0</strong></span>
+      <span>Placed: <strong id="stat-placed">0</strong></span>
+      <span>Backtracks: <strong id="stat-backtracks">0</strong></span>
+      <span id="stat-status"></span>
+    </div>
+
+    <div id="board-wrap">
+      <canvas id="board" width="480" height="480" aria-label="N-Queens chessboard"></canvas>
+    </div>
+
+    <div id="log" class="log" aria-live="polite"></div>
+
+    <script type="module">
+      // N-Queens backtracker — same algorithm as the C++ HW2, instrumented
+      // for step-by-step visualization. The yield-step-then-resume pattern
+      // uses an iterator so we can pause / step / replay without rewriting
+      // the recursive structure.
+
+      const $ = (id) => document.getElementById(id)
+      const canvas = $('board')
+      const ctx = canvas.getContext('2d')
+
+      const state = {
+        n: 8,
+        cols: [], // cols[r] = c if queen placed in row r
+        running: false,
+        steps: 0,
+        placed: 0,
+        backtracks: 0,
+        speed: 40,
+        cancel: false,
+      }
+
+      function isSafe(cols, row, col) {
+        for (let r = 0; r < row; r++) {
+          const c = cols[r]
+          if (c === col || Math.abs(c - col) === row - r) return false
+        }
+        return true
+      }
+
+      // Generator that yields after each placement / backtrack so the UI
+      // can render an intermediate state.
+      function* solve(n, cols = [], row = 0) {
+        if (row === n) {
+          yield { type: 'solved', cols: [...cols] }
+          return true
+        }
+        for (let col = 0; col < n; col++) {
+          state.steps += 1
+          if (isSafe(cols, row, col)) {
+            cols[row] = col
+            state.placed += 1
+            yield { type: 'place', row, col, cols: [...cols] }
+            const found = yield* solve(n, cols, row + 1)
+            if (found) return true
+            state.backtracks += 1
+            yield { type: 'unplace', row, col, cols: [...cols.slice(0, row)] }
+          } else {
+            yield { type: 'reject', row, col, cols: [...cols] }
+          }
+        }
+        return false
+      }
+
+      function drawBoard() {
+        const sz = canvas.width
+        const cell = sz / state.n
+        ctx.clearRect(0, 0, sz, sz)
+        for (let r = 0; r < state.n; r++) {
+          for (let c = 0; c < state.n; c++) {
+            const light = (r + c) % 2 === 0
+            ctx.fillStyle = light
+              ? getCss('--board-light')
+              : getCss('--board-dark')
+            ctx.fillRect(c * cell, r * cell, cell, cell)
+          }
+        }
+        ctx.font = `${Math.floor(cell * 0.65)}px serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        for (let r = 0; r < state.cols.length; r++) {
+          const c = state.cols[r]
+          if (c === undefined) continue
+          ctx.fillStyle = getCss('--queen')
+          ctx.fillText('♛', c * cell + cell / 2, r * cell + cell / 2)
+        }
+      }
+
+      function getCss(varName) {
+        return getComputedStyle(document.body).getPropertyValue(varName).trim()
+      }
+
+      function logEntry(text, klass) {
+        const div = document.createElement('div')
+        if (klass) div.className = klass
+        div.textContent = text
+        $('log').appendChild(div)
+        $('log').scrollTop = $('log').scrollHeight
+      }
+
+      function updateStats(status = '') {
+        $('stat-steps').textContent = state.steps
+        $('stat-placed').textContent = state.placed
+        $('stat-backtracks').textContent = state.backtracks
+        $('stat-status').textContent = status
+      }
+
+      function reset() {
+        state.cancel = true
+        state.running = false
+        state.cols = []
+        state.steps = 0
+        state.placed = 0
+        state.backtracks = 0
+        updateStats('')
+        $('log').innerHTML = ''
+        drawBoard()
+        $('solve-btn').disabled = false
+        $('step-btn').disabled = false
+      }
+
+      let stepGen = null
+      function startGen() {
+        state.cancel = false
+        stepGen = solve(state.n, [], 0)
+      }
+
+      function applyStep(value) {
+        if (!value) return false
+        state.cols = value.cols
+        if (value.type === 'place') {
+          logEntry(`place row ${value.row} col ${value.col}`, 'placed')
+        } else if (value.type === 'unplace') {
+          logEntry(`backtrack from row ${value.row}`, 'backtrack')
+        } else if (value.type === 'solved') {
+          logEntry(`solved! [${value.cols.join(', ')}]`, 'solved')
+          updateStats('Solved')
+          return true
+        }
+        drawBoard()
+        updateStats('')
+        return false
+      }
+
+      async function runSolve() {
+        if (state.running) return
+        if (!stepGen) {
+          reset()
+          startGen()
+        }
+        state.running = true
+        $('solve-btn').disabled = true
+        $('step-btn').disabled = true
+        const delay = Math.max(0, 200 - state.speed * 2)
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          if (state.cancel) break
+          const { value, done } = stepGen.next()
+          const isSolved = applyStep(value)
+          if (done || isSolved) break
+          await new Promise((r) => setTimeout(r, delay))
+        }
+        state.running = false
+        $('solve-btn').disabled = false
+        $('step-btn').disabled = false
+      }
+
+      function stepOnce() {
+        if (state.running) return
+        if (!stepGen) {
+          reset()
+          startGen()
+        }
+        const { value, done } = stepGen.next()
+        applyStep(value)
+        if (done) $('step-btn').disabled = true
+      }
+
+      $('n-slider').addEventListener('input', (e) => {
+        state.n = +e.target.value
+        $('n-value').textContent = state.n
+        reset()
+        stepGen = null
+      })
+      $('speed-slider').addEventListener('input', (e) => {
+        state.speed = +e.target.value
+      })
+      $('solve-btn').addEventListener('click', runSolve)
+      $('step-btn').addEventListener('click', stepOnce)
+      $('reset-btn').addEventListener('click', () => {
+        reset()
+        stepGen = null
+      })
+
+      reset()
+    </script>
+  </body>
+</html>

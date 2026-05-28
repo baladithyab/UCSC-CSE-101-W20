@@ -1,19 +1,24 @@
-# UCSC-CSE-101-W20
-My labs and programming assignments done in/for the CSE 101 - Abstract Data Types class at UCSC.
+# UCSC CSE 101 — Algorithms (Winter 2020)
 
-[Course Website](https://users.soe.ucsc.edu/~sesh/Teaching/2020/CSE101/index.html)
+My labs and programming assignments from CSE 101 (Algorithms / Abstract Data Types) at UCSC, taught Winter 2020 by Patricia Lopez.
 
-[UCSC Catalog](https://catalog.ucsc.edu/Current/General-Catalog/Courses/CSE-Computer-Science-and-Engineering/Upper-Division/CSE-101)
+The repo holds the original C++ source for each homework (`hw1/` through `hw4/`), plus extras for binary heaps, BSTs, linked lists, graph problems, and recursion-through-stacks tutorials.
 
-This course is titled CSE 101 - Introduction to Data Structures.
+## Live demos
 
-**Prerequisite:**  CSE 13E or CSE 13S; and CSE 16; and CSE 30; and MATH 11B or MATH 19B or MATH 20B or AM 11B; Students may enroll in CSE 101 without having completed CSE 30 and CSE 13S or CSE 13E if they complete CSE 15 and CSE 15L (formerly CMPS 12B/M) by Fall 2019; and CSE 16; and MATH 11B or MATH 19B or MATH 20B or AM 11B; and one course from the following: MATH 21, MATH 22, MATH 23A, AM 10, or STAT 131.
+The `embeds/` directory holds two interactive visualizations of the algorithms:
 
-This course is a prerequisite to almost all other Upper-Division Courses within the Computer Science, Computer Engineering, and/or Computer Science: Game Design.
+- **N-Queens backtracker** (HW2) — animated column-by-column placement
+- **AVL Wordrange** (HW3) — string-keyed self-balancing BST with rotation animation
 
-This course is based in the C++ programming language. The course syllabus is present in the root directory.
+These run on [codeseys.io/projects/cse-101](https://codeseys.io/projects/cse-101) via the [`codeseys-embed` discovery topic](https://codeseys.io/blog/personal-website-embed-architecture/) — push to master rebuilds them automatically.
 
-Key:
-* nhw# ==> Homework #
+## Layout
 
-Every assignment's description/instructions are present in the pdf present in the directory.
+| Path | What |
+|---|---|
+| `hw1/` … `hw4/` | Per-homework C++ source + writeups |
+| `bst-codes/`, `binary-heap/`, `linket-list/` | Standalone ADT implementations |
+| `graph-qns/`, `bruteforce-questions/`, `recursion-through-stacks/` | In-class problem sets |
+| `embeds/` | Interactive web demos (rendered on codeseys.io) |
+| `web.codeseys.json` | Embed manifest (consumed by the personal-site discovery script) |
