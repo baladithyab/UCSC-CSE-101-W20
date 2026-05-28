@@ -9,7 +9,7 @@
     "year": 2020
   },
   "title": "CSE 101 — Algorithms (UCSC, Winter 2020)",
-  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. The N-Queens demo runs the original course C++ unmodified — Board.cpp + Queens.cpp from hw2/NQueens/ — compiled to WebAssembly with a thin step-by-step iterator shim. The AVL Wordrange demo currently uses a TypeScript reimplementation; a WASM port from hw3/Wordrange/AVL.cpp is on the roadmap.",
+  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. Both demos run the original course C++ unmodified — N-Queens uses hw2/NQueens/Board.cpp + Queens.cpp; AVL Wordrange uses hw3/Wordrange/AVL.cpp — compiled to WebAssembly with thin step-by-step iterator shims. The JavaScript layer only handles rendering; the algorithms themselves are exactly what was submitted for grading in 2020.",
   "tags": [
     "algorithms",
     "data-structures",
@@ -35,9 +35,9 @@
     },
     {
       "id": "avl-wordrange",
-      "title": "HW3 — AVL Wordrange",
+      "title": "HW3 — AVL Wordrange (real C++ → WASM)",
       "group": "Demos",
-      "description": "Self-balancing BST of strings. Insert words and watch the tree rotate (LL/RR/LR/RL) to maintain balance. Range queries highlight every node lexicographically between two endpoints.",
+      "description": "Self-balancing BST of strings. The AVL.cpp from the original course is compiled to WebAssembly; the JavaScript layer only renders the tree. Insert words, run range queries (count of keys lexicographically between Lo and Hi), and watch the tree balance itself with each operation — all using the algorithm as it was submitted for grading.",
       "embed": {
         "kind": "static-html",
         "entry": "avl-wordrange.html"

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light only" />
+  <title>AVL Wordrange (WASM, real CSE 101 C++)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #111;
+      background: #fafaf9;
+      padding: 1rem;
+    }
+    h1 { margin: 0 0 .25rem 0; font-size: 1.05rem; font-weight: 600; }
+    h1 small {
+      color: #555;
+      font-weight: 400;
+      font-size: .85em;
+      margin-left: .35em;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 240px;
+      gap: 1rem;
+      max-width: 940px;
+      margin: 0 auto;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { order: -1; }
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      padding: .75rem;
+    }
+    .row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; flex-wrap: wrap; }
+    label { font-size: .75rem; color: #555; min-width: 38px; }
+    input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      padding: .25rem .5rem;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      font: inherit;
+    }
+    button {
+      font: inherit;
+      padding: .35rem .7rem;
+      border: 1px solid #aaa;
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #f4f4f5; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button.primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+    button.primary:hover { background: #1e3a8a; }
+    .stats {
+      font-size: .72rem;
+      color: #555;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.7;
+    }
+    .stats dt { display: inline; font-weight: 600; }
+    .stats dt::after { content: ":"; }
+    .stats dd { display: inline; margin: 0 0 0 .25em; }
+    .stats > div { display: block; }
+    #tree {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      min-height: 400px;
+      background: #fff;
+      border-radius: 4px;
+    }
+    .footer-note {
+      font-size: .7rem;
+      color: #71717a;
+      margin-top: .5rem;
+      line-height: 1.5;
+    }
+    .footer-note a { color: #1d4ed8; }
+    .preset-btn {
+      font-size: .7rem;
+      padding: .15rem .4rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div>
+      <h1>HW3 AVL Wordrange <small>WebAssembly · real CSE 101 C++</small></h1>
+      <canvas id="tree" aria-label="AVL tree visualization"></canvas>
+    </div>
+    <div class="panel">
+      <div class="row">
+        <label for="word">Word</label>
+        <input id="word" type="text" placeholder="apple" autocomplete="off" />
+      </div>
+      <div class="row" style="gap: .35rem;">
+        <button id="insert" class="primary">Insert</button>
+        <button id="reset">Reset</button>
+      </div>
+
+      <div class="row" style="margin-top: .25rem; gap: .25rem; flex-wrap: wrap;">
+        <span style="font-size: .7rem; color: #555;">Presets:</span>
+        <button class="preset-btn" data-preset="alphabet">A–Z</button>
+        <button class="preset-btn" data-preset="words">words</button>
+        <button class="preset-btn" data-preset="random">random</button>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: .5rem 0;" />
+
+      <div class="row">
+        <label for="lo" style="min-width: 18px;">Lo</label>
+        <input id="lo" type="text" placeholder="apple" autocomplete="off" style="flex: 1;" />
+      </div>
+      <div class="row">
+        <label for="hi" style="min-width: 18px;">Hi</label>
+        <input id="hi" type="text" placeholder="zebra" autocomplete="off" style="flex: 1;" />
+      </div>
+      <div class="row">
+        <button id="query">Range query</button>
+        <span id="rangeResult" style="font-size: .8rem; font-weight: 600;"></span>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: .5rem 0;" />
+      <dl class="stats">
+        <div><dt>Nodes</dt><dd id="stat-nodes">0</dd></div>
+        <div><dt>Height</dt><dd id="stat-height">0</dd></div>
+      </dl>
+      <p class="footer-note">
+        Self-balancing BST. Insert any string; the tree rotates to keep
+        |left.height − right.height| ≤ 1. Algorithm:
+        <a href="https://github.com/baladithyab/UCSC-CSE-101-W20/blob/master/hw3/Wordrange/AVL.cpp"
+           target="_blank" rel="noopener">hw3/Wordrange/AVL.cpp</a> compiled with Emscripten.
+      </p>
+    </div>
+  </div>
+
+  <script src="./avl-wordrange.js"></script>
+  <script>
+    (() => {
+      'use strict';
+      const $ = (id) => document.getElementById(id);
+      const canvas = $('tree');
+      const ctx = canvas.getContext('2d');
+      let mod = null;
+
+      // --- canvas sizing ---------------------------------------------
+      function resizeCanvas(treeHeight) {
+        const cssW = canvas.clientWidth || canvas.parentElement.clientWidth;
+        const dpr = window.devicePixelRatio || 1;
+        // Height grows with depth so deep trees scroll vertically.
+        const rowH = 70;
+        const cssH = Math.max(400, (treeHeight + 1) * rowH + 30);
+        canvas.style.height = `${cssH}px`;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return { width: cssW, height: cssH };
+      }
+
+      // --- tree layout -----------------------------------------------
+      // Read structure out of the wasm snapshot, then run a
+      // straightforward in-order x-coordinate assignment so siblings
+      // don't overlap at any depth.
+      function buildLayout() {
+        if (!mod) return null;
+        const count = mod._avl_count();
+        if (count === 0) return null;
+
+        const nodes = [];
+        for (let i = 0; i < count; i++) {
+          nodes.push({
+            i,
+            key: mod.UTF8ToString(mod._avl_node_key(i)),
+            left: mod._avl_node_left(i),
+            right: mod._avl_node_right(i),
+            parent: mod._avl_node_parent(i),
+            depth: mod._avl_node_depth(i),
+            height: mod._avl_node_height(i),
+            ldesc: mod._avl_node_ldesc(i),
+            rdesc: mod._avl_node_rdesc(i),
+            x: 0, y: 0,
+          });
+        }
+
+        // In-order traversal assigns sequential x positions; depth gives y.
+        let xCounter = 0;
+        const inorder = (idx) => {
+          if (idx < 0) return;
+          inorder(nodes[idx].left);
+          nodes[idx].x = xCounter++;
+          inorder(nodes[idx].right);
+        };
+        const root = mod._avl_root_idx();
+        inorder(root);
+
+        let maxDepth = 0;
+        for (const n of nodes) maxDepth = Math.max(maxDepth, n.depth);
+
+        return { nodes, root, count, maxDepth };
+      }
+
+      // --- render ----------------------------------------------------
+      function draw() {
+        const layout = buildLayout();
+        if (!layout) {
+          // Empty tree — clear canvas
+          const cssW = canvas.clientWidth || canvas.parentElement.clientWidth;
+          canvas.style.height = '180px';
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(cssW * dpr);
+          canvas.height = Math.floor(180 * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.fillStyle = '#a1a1aa';
+          ctx.font = '14px system-ui';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Empty tree — insert some words →', cssW / 2, 90);
+          $('stat-nodes').textContent = '0';
+          $('stat-height').textContent = '0';
+          return;
+        }
+
+        const { nodes, root, count, maxDepth } = layout;
+        const { width, height } = resizeCanvas(maxDepth);
+
+        // Map x ∈ [0, count-1] → pixel range with margin.
+        const xMargin = 30;
+        const yMargin = 30;
+        const xRange = Math.max(1, count - 1);
+        const xPx = (x) => xMargin + (x / xRange) * (width - 2 * xMargin);
+        const rowH = (height - 2 * yMargin) / Math.max(1, maxDepth);
+        const yPx = (d) => yMargin + d * rowH;
+
+        // 1. Draw edges
+        ctx.strokeStyle = '#71717a';
+        ctx.lineWidth = 1.5;
+        for (const n of nodes) {
+          if (n.left >= 0) {
+            const c = nodes[n.left];
+            ctx.beginPath();
+            ctx.moveTo(xPx(n.x), yPx(n.depth));
+            ctx.lineTo(xPx(c.x), yPx(c.depth));
+            ctx.stroke();
+          }
+          if (n.right >= 0) {
+            const c = nodes[n.right];
+            ctx.beginPath();
+            ctx.moveTo(xPx(n.x), yPx(n.depth));
+            ctx.lineTo(xPx(c.x), yPx(c.depth));
+            ctx.stroke();
+          }
+        }
+
+        // 2. Draw nodes
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const radius = 18;
+        for (const n of nodes) {
+          const px = xPx(n.x), py = yPx(n.depth);
+          ctx.beginPath();
+          ctx.arc(px, py, radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#1d4ed8';
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = '#1e3a8a';
+          ctx.stroke();
+          // Truncate long keys
+          const display = n.key.length > 7 ? n.key.slice(0, 5) + '…' : n.key;
+          ctx.fillStyle = '#fff';
+          ctx.fillText(display, px, py);
+
+          // Height annotation
+          ctx.fillStyle = '#71717a';
+          ctx.font = '10px system-ui';
+          ctx.fillText(`h=${n.height}`, px, py + radius + 10);
+          ctx.font = 'bold 12px system-ui';
+        }
+
+        $('stat-nodes').textContent = count;
+        $('stat-height').textContent = nodes[root].height;
+      }
+
+      // --- bind UI ---------------------------------------------------
+      let avl_insert, avl_range;
+
+      $('insert').addEventListener('click', () => {
+        const w = $('word').value.trim();
+        if (!w) return;
+        avl_insert(w);
+        $('word').value = '';
+        $('word').focus();
+        draw();
+      });
+      $('word').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') $('insert').click();
+      });
+      $('reset').addEventListener('click', () => {
+        if (!mod) return;
+        mod._avl_reset();
+        $('rangeResult').textContent = '';
+        draw();
+      });
+      $('query').addEventListener('click', () => {
+        const lo = $('lo').value.trim();
+        const hi = $('hi').value.trim();
+        if (!lo || !hi) return;
+        const n = avl_range(lo, hi);
+        $('rangeResult').textContent = `${n} word${n === 1 ? '' : 's'}`;
+      });
+
+      // Presets
+      const presets = {
+        alphabet: ['m','b','o','a','c','f','i','n','p','r','t','v','x','z','d','e','g','h','j','k','l','q','s','u','w','y'],
+        words: ['middle','apple','zebra','banana','mango','kiwi','orange','pear','cherry','fig','grape','lemon'],
+        random: () => {
+          const out = [];
+          for (let i = 0; i < 12; i++) {
+            const len = 3 + (Math.random() * 5 | 0);
+            let s = '';
+            for (let j = 0; j < len; j++) s += String.fromCharCode(97 + (Math.random() * 26 | 0));
+            out.push(s);
+          }
+          return out;
+        },
+      };
+      document.querySelectorAll('.preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (!mod) return;
+          mod._avl_reset();
+          const data = presets[btn.dataset.preset];
+          const list = typeof data === 'function' ? data() : data;
+          for (const w of list) avl_insert(w);
+          draw();
+        });
+      });
+
+      window.addEventListener('resize', draw);
+
+      // --- bootstrap -------------------------------------------------
+      if (typeof createAvlModule !== 'function') {
+        ctx.fillStyle = '#dc2626';
+        ctx.font = '14px system-ui';
+        ctx.fillText('FATAL: avl-wordrange.js failed to load', 200, 40);
+        return;
+      }
+      createAvlModule().then((m) => {
+        mod = m;
+        avl_insert = m.cwrap('avl_insert', 'number', ['string']);
+        avl_range = m.cwrap('avl_range', 'number', ['string', 'string']);
+        m._avl_reset();
+        // Start with a small example
+        for (const w of ['middle','apple','zebra','banana','mango','kiwi']) avl_insert(w);
+        draw();
+      }).catch((err) => {
+        ctx.fillStyle = '#dc2626';
+        ctx.font = '14px system-ui';
+        ctx.fillText(`WASM load failed: ${err && err.message ? err.message : String(err)}`, 30, 40);
+      });
+    })();
+  </script>
+</body>
+</html>

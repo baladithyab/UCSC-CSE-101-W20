@@ -82,8 +82,57 @@ else
   echo "::warning::missing $NQ_SRC_DIR or $NQ_SHIM_DIR; skipping N-Queens build"
 fi
 
-# ---------- AVL Wordrange (HW3) — TODO ----------------------------------
-# Future: compile hw3/Wordrange/AVL.cpp + a wasm shim.
+# ---------- AVL Wordrange (HW3) -----------------------------------------
+# Compiles hw3/Wordrange/AVL.cpp + the wasm shim into avl-wordrange.{js,wasm}.
+AVL_SRC_DIR="hw3/Wordrange"
+AVL_SHIM_DIR="embeds-wasm/avl-wordrange"
+if [ -f "$AVL_SHIM_DIR/avl-wordrange-wasm.cpp" ] && [ -d "$AVL_SRC_DIR" ]; then
+  echo
+  echo "── AVL Wordrange ──────────────────────────────────────────"
+
+  emcc \
+    "$AVL_SRC_DIR/AVL.cpp" \
+    "$AVL_SHIM_DIR/avl-wordrange-wasm.cpp" \
+    -I "$AVL_SRC_DIR" \
+    -I "$AVL_SHIM_DIR" \
+    -O3 \
+    -std=c++17 \
+    -s MODULARIZE=1 \
+    -s EXPORT_NAME='createAvlModule' \
+    -s ENVIRONMENT='web' \
+    -s ALLOW_MEMORY_GROWTH=1 \
+    -s INITIAL_MEMORY=4194304 \
+    -s STACK_SIZE=1048576 \
+    -s EXPORTED_FUNCTIONS='[
+      "_avl_reset",
+      "_avl_insert",
+      "_avl_range",
+      "_avl_count",
+      "_avl_root_idx",
+      "_avl_node_left",
+      "_avl_node_right",
+      "_avl_node_parent",
+      "_avl_node_height",
+      "_avl_node_ldesc",
+      "_avl_node_rdesc",
+      "_avl_node_depth",
+      "_avl_node_key",
+      "_malloc",
+      "_free"
+    ]' \
+    -s EXPORTED_RUNTIME_METHODS='["UTF8ToString","stringToUTF8","lengthBytesUTF8","HEAPU8","ccall","cwrap"]' \
+    -s SINGLE_FILE=0 \
+    --closure 0 \
+    -o "$DEST/avl-wordrange.js"
+
+  cp "$AVL_SHIM_DIR/avl-wordrange.html" "$DEST/avl-wordrange.html"
+
+  echo "  ✓ $DEST/avl-wordrange.js   ($(stat -c%s "$DEST/avl-wordrange.js" 2>/dev/null || stat -f%z "$DEST/avl-wordrange.js") bytes)"
+  echo "  ✓ $DEST/avl-wordrange.wasm ($(stat -c%s "$DEST/avl-wordrange.wasm" 2>/dev/null || stat -f%z "$DEST/avl-wordrange.wasm") bytes)"
+  echo "  ✓ $DEST/avl-wordrange.html"
+else
+  echo "::warning::missing $AVL_SRC_DIR or $AVL_SHIM_DIR; skipping AVL Wordrange build"
+fi
 
 # ---------- Sixdegrees BFS (HW4) — TODO ---------------------------------
 # Future: compile hw4/Sixdegrees/graph.cpp + a wasm shim.
