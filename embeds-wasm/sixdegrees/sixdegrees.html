@@ -134,6 +134,15 @@
         <span style="color:#a1a1aa;">Loading WASM…</span>
       </div>
 
+      <div class="row" style="margin-top: .75rem; display: flex; gap: .4rem; flex-wrap: wrap; align-items: center;">
+        <button id="loadFull" type="button" style="padding: .35rem .7rem; font-size: .8rem;">
+          📦 Load full IMDb dataset (9.8 MB · 131K films · 60K+ actors)
+        </button>
+        <span id="datasetBadge" style="font-size: .75rem; padding: .15rem .5rem; border-radius: 3px; background: #f4f4f5; color: #555;">
+          Loaded: synthetic (40 films)
+        </span>
+      </div>
+
       <details style="margin-top: .75rem;">
         <summary>Movie list (graph data — edit to add your own films)</summary>
         <textarea id="movies" spellcheck="false"></textarea>
@@ -159,7 +168,7 @@
 
       <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: .5rem 0;" />
       <div class="row" style="display:block; margin-bottom: 0;">
-        <span style="font-size: .7rem; color: #555; display: block; margin-bottom: .35rem;">Try these:</span>
+        <span style="font-size: .7rem; color: #555; display: block; margin-bottom: .35rem;">Try these (synthetic):</span>
         <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: stretch;">
           <button class="preset" data-from="John_Travolta" data-to="Uma_Thurman">Travolta → Thurman</button>
           <button class="preset" data-from="Tom_Cruise" data-to="Brad_Pitt">Cruise → Pitt</button>
@@ -167,6 +176,15 @@
           <button class="preset" data-from="Frances_McDormand" data-to="Rami_Malek">McDormand → Malek</button>
           <button class="preset" data-from="Bill_Murray" data-to="Ana_de_Armas">Bill Murray → Ana de Armas</button>
           <button class="preset" data-from="Christian_Bale" data-to="Margot_Robbie">Bale → Robbie</button>
+        </div>
+        <span style="font-size: .7rem; color: #555; display: block; margin: .65rem 0 .35rem 0;">Try these (full IMDb — load dataset first):</span>
+        <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: stretch;">
+          <button class="preset" data-from="Kevin_Bacon" data-to="Tom_Hanks">Kevin Bacon → Tom Hanks (1 hop)</button>
+          <button class="preset" data-from="Kevin_Bacon" data-to="Marlon_Brando">Kevin Bacon → Brando (the OG)</button>
+          <button class="preset" data-from="Daniel_Radcliffe" data-to="Kevin_Bacon">Radcliffe → Kevin Bacon</button>
+          <button class="preset" data-from="Marlon_Brando" data-to="Robert_Downey_Jr.">Brando → RDJ</button>
+          <button class="preset" data-from="Buster_Keaton" data-to="Robert_Downey_Jr.">Keaton → RDJ (silent → Marvel)</button>
+          <button class="preset" data-from="Tom_Hanks" data-to="Margot_Robbie">Tom Hanks → Margot Robbie</button>
         </div>
       </div>
 
@@ -287,6 +305,48 @@
           $('dest').value = btn.dataset.to;
           runQuery();
         });
+      });
+
+      // Full-IMDb dataset toggle
+      const loadFullBtn = $('loadFull');
+      const datasetBadge = $('datasetBadge');
+      let fullDatasetCache = null;
+      loadFullBtn.addEventListener('click', async () => {
+        if (!mod) return;
+        loadFullBtn.disabled = true;
+        const origLabel = loadFullBtn.textContent;
+        try {
+          if (!fullDatasetCache) {
+            loadFullBtn.textContent = '⏳ Downloading 9.8 MB…';
+            const t0 = performance.now();
+            const resp = await fetch('data/cleaned_movielist.txt');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            fullDatasetCache = await resp.text();
+            const dt = ((performance.now() - t0) / 1000).toFixed(1);
+            console.log(`Fetched IMDb dataset in ${dt}s — ${fullDatasetCache.length} bytes`);
+          }
+          loadFullBtn.textContent = '⚙️ Building graph (BFS-ready)…';
+          // Yield to paint
+          await new Promise(r => setTimeout(r, 30));
+          const t0 = performance.now();
+          $('movies').value = fullDatasetCache;
+          reloadGraph();
+          const dt = ((performance.now() - t0) / 1000).toFixed(1);
+          datasetBadge.textContent = `Loaded: full IMDb (${filmCount.toLocaleString()} films · ${mod._sixdeg_actor_count().toLocaleString()} actors · built in ${dt}s)`;
+          datasetBadge.style.background = '#dcfce7';
+          datasetBadge.style.color = '#166534';
+          loadFullBtn.textContent = '✓ Full dataset loaded';
+          // Suggest a Kevin Bacon query so the user has something to click
+          $('src').value = 'Kevin_Bacon';
+          $('dest').value = 'Tom_Hanks';
+          result.innerHTML = '<span style="color:#a1a1aa;">Full IMDb graph loaded. Try Kevin Bacon → Tom Hanks →</span>';
+        } catch (err) {
+          loadFullBtn.disabled = false;
+          loadFullBtn.textContent = origLabel;
+          datasetBadge.textContent = `Failed: ${err && err.message ? err.message : String(err)}`;
+          datasetBadge.style.background = '#fee2e2';
+          datasetBadge.style.color = '#991b1b';
+        }
       });
 
       // Bootstrap

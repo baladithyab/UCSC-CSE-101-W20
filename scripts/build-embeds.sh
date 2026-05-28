@@ -156,8 +156,8 @@ if [ -f "$SIXDEG_SHIM_DIR/sixdegrees-wasm.cpp" ] && [ -d "$SIXDEG_SRC_DIR" ]; th
     -s EXPORT_NAME='createSixdegModule' \
     -s ENVIRONMENT='web' \
     -s ALLOW_MEMORY_GROWTH=1 \
-    -s INITIAL_MEMORY=4194304 \
-    -s STACK_SIZE=1048576 \
+    -s INITIAL_MEMORY=67108864 \
+    -s STACK_SIZE=2097152 \
     -s EXPORTED_FUNCTIONS='[
       "_sixdeg_load",
       "_sixdeg_query",
@@ -175,6 +175,17 @@ if [ -f "$SIXDEG_SHIM_DIR/sixdegrees-wasm.cpp" ] && [ -d "$SIXDEG_SRC_DIR" ]; th
 
   cp "$SIXDEG_SHIM_DIR/sixdegrees.html" "$DEST/sixdegrees.html"
   cp "$SIXDEG_SHIM_DIR/movies.txt"      "$DEST/movies.txt"
+
+  # Ship the original 9.8MB IMDb-derived dataset as an opt-in dataset
+  # the demo can fetch on-demand. Living at data/ inside the embed.
+  mkdir -p "$DEST/data"
+  if [ -f "$SIXDEG_SRC_DIR/cleaned_movielist.txt" ]; then
+    cp "$SIXDEG_SRC_DIR/cleaned_movielist.txt" "$DEST/data/cleaned_movielist.txt"
+    DS_BYTES=$(stat -c%s "$DEST/data/cleaned_movielist.txt" 2>/dev/null || stat -f%z "$DEST/data/cleaned_movielist.txt")
+    echo "  ✓ $DEST/data/cleaned_movielist.txt ($DS_BYTES bytes)"
+  else
+    echo "::warning::$SIXDEG_SRC_DIR/cleaned_movielist.txt not found — IMDb dataset toggle will fail"
+  fi
 
   echo "  ✓ $DEST/sixdegrees.js   ($(stat -c%s "$DEST/sixdegrees.js" 2>/dev/null || stat -f%z "$DEST/sixdegrees.js") bytes)"
   echo "  ✓ $DEST/sixdegrees.wasm ($(stat -c%s "$DEST/sixdegrees.wasm" 2>/dev/null || stat -f%z "$DEST/sixdegrees.wasm") bytes)"

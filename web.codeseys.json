@@ -47,7 +47,7 @@
       "id": "sixdegrees",
       "title": "HW4 — Six-Degrees BFS (real C++ → WASM)",
       "group": "Demos",
-      "description": "Find the shortest path between any two actors in a movie graph using BFS. The graph.cpp from the original course is compiled to WebAssembly; JavaScript handles only the input form and rendering. Bundled with a small synthetic movie list (~40 films, ~70 actors); paste your own edge list to explore custom graphs. The original course used a 10MB IMDb-derived dataset that we deliberately do NOT ship — the algorithm is the interesting part.",
+      "description": "Find the shortest path between any two actors in a movie graph using BFS. The graph.cpp from the original course is compiled to WebAssembly; JavaScript handles only the input form and rendering. Boots with a small synthetic ~40-film list, then a one-click toggle loads the original 9.8 MB IMDb-derived dataset (131K films, 60K+ actors) — same data the homework was graded against. Try classic Kevin-Bacon-style queries: Kevin Bacon → Tom Hanks (1 hop via The Making of Apollo 13), Brando → RDJ, etc.",
       "embed": {
         "kind": "static-html",
         "entry": "sixdegrees.html"
