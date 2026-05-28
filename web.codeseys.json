@@ -48,8 +48,8 @@
     "workflow": ".github/workflows/build-web-asset.yml"
   },
   "delivery": {
-    "url": "https://assets-r2.codeseys.io/cse-101/d531256/",
-    "version": "d531256",
+    "url": "https://assets-r2.codeseys.io/cse-101/9bf9a34/",
+    "version": "9bf9a34",
     "sizeBytes": 22161
   }
 }
