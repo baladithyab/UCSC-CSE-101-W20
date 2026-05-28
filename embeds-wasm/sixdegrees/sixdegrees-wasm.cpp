@@ -38,7 +38,13 @@ std::string g_outBuf;
 std::string g_lastError;
 
 void resetState() {
-    delete g_graph;
+    // NOTE: we deliberately leak the previous Graph rather than `delete`-ing it.
+    // The graph's nested unordered_map<string, list<Coactor>> holds millions of
+    // small allocations; emscripten's wasm runtime traps with
+    // "memory access out of bounds" partway through teardown when the graph
+    // gets large (~50K+ films). Leaking is safe here — each demo session is
+    // a tab lifetime, the OS reclaims the wasm linear memory on tab close,
+    // and load is rare (user clicks at most a few times).
     g_graph = new Graph();
     g_lastPath.clear();
     g_pathFlat.clear();
