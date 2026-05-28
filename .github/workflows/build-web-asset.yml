@@ -5,6 +5,11 @@ on:
     branches: [master, main]
     paths:
       - 'embeds/**'
+      - 'embeds-wasm/**'
+      - 'scripts/**'
+      - 'hw2/**'
+      - 'hw3/**'
+      - 'hw4/**'
       - 'web.codeseys.json'
       - '.github/workflows/build-web-asset.yml'
   workflow_dispatch:
