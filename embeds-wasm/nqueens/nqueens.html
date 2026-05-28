@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light only" />
+  <title>N-Queens (WASM, real CSE 101 C++)</title>
+  <style>
+    :root {
+      --board-light: #f0d9b5;
+      --board-dark: #b58863;
+      --queen: #1f2937;
+      --queen-attack: #dc2626;
+      --queen-recent: #2563eb;
+      --board-trace: rgba(37, 99, 235, 0.18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #111;
+      background: #fafaf9;
+      padding: 1rem;
+    }
+    h1 { margin: 0 0 .25rem 0; font-size: 1.05rem; font-weight: 600; }
+    h1 small {
+      color: #555;
+      font-weight: 400;
+      font-size: .85em;
+      margin-left: .35em;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 1rem;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { order: -1; }
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      padding: .75rem;
+    }
+    .row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; flex-wrap: wrap; }
+    label { font-size: .75rem; color: #555; min-width: 35px; }
+    input[type="range"] { flex: 1; min-width: 0; }
+    .val { min-width: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
+    button {
+      font: inherit;
+      padding: .35rem .7rem;
+      border: 1px solid #aaa;
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #f4f4f5; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button.primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+    button.primary:hover { background: #1e3a8a; }
+    .stats {
+      font-size: .72rem;
+      color: #555;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.6;
+    }
+    .stats dt { display: inline; font-weight: 600; }
+    .stats dt::after { content: ":"; }
+    .stats dd { display: inline; margin: 0 .8em 0 .2em; }
+    .stats > div { display: block; }
+    #board {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      background: #fff;
+      border-radius: 4px;
+    }
+    .log {
+      font: 11px/1.35 ui-monospace, monospace;
+      max-height: 140px;
+      overflow-y: auto;
+      background: #18181b;
+      color: #d4d4d8;
+      border-radius: 4px;
+      padding: .5rem;
+      margin-top: .5rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log .place { color: #34d399; }
+    .log .back  { color: #fb923c; }
+    .log .done  { color: #fde047; font-weight: 600; }
+    .footer-note {
+      font-size: .7rem;
+      color: #71717a;
+      margin-top: .5rem;
+      line-height: 1.5;
+    }
+    .footer-note a { color: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div>
+      <h1>HW2 N-Queens <small>WebAssembly · real CSE 101 C++</small></h1>
+      <canvas id="board"></canvas>
+      <div class="log" id="log" aria-live="polite"></div>
+    </div>
+    <div class="panel">
+      <div class="row">
+        <label for="n">N</label>
+        <input id="n" type="range" min="4" max="12" value="8" />
+        <span class="val" id="nval">8</span>
+      </div>
+      <div class="row" style="gap: .35rem;">
+        <button id="reset">Reset</button>
+        <button id="step">Step</button>
+        <button id="solve" class="primary">Solve all</button>
+      </div>
+      <div class="row">
+        <label for="speed">Speed</label>
+        <input id="speed" type="range" min="1" max="200" value="60" />
+        <span class="val" id="speedval">60</span>
+      </div>
+      <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: .5rem 0;" />
+      <dl class="stats">
+        <div><dt>Steps</dt><dd id="stat-steps">0</dd></div>
+        <div><dt>Placed</dt><dd id="stat-placed">0</dd></div>
+        <div><dt>Backtracks</dt><dd id="stat-back">0</dd></div>
+        <div><dt>Status</dt><dd id="stat-status">idle</dd></div>
+      </dl>
+      <p class="footer-note">
+        Algorithm: column-by-column backtracking, exactly the C++ in
+        <a href="https://github.com/baladithyab/UCSC-CSE-101-W20/blob/master/hw2/NQueens/Board.cpp"
+           target="_blank" rel="noopener">hw2/NQueens/Board.cpp</a>,
+        compiled with Emscripten. View the wasm shim source
+        <a href="https://github.com/baladithyab/UCSC-CSE-101-W20/blob/master/embeds-wasm/nqueens/nqueens-wasm.cpp"
+           target="_blank" rel="noopener">here</a>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Emscripten loader. We use the MODULARIZE=1 build, exposing
+       createNqueensModule() returning a Promise. -->
+  <script src="./nqueens.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const canvas = $('board');
+      const ctx = canvas.getContext('2d');
+      const logEl = $('log');
+
+      // ---- state visible to the UI -----------------------------------
+      let mod = null;             // resolved Emscripten module
+      let lastMoveRow = -1;       // for highlighting
+      let lastMoveCol = -1;
+      let stepsTaken = 0;
+      let placeCount = 0;
+      let backCount = 0;
+      let solveTimer = null;
+
+      // Trace of (row, col) cells we've ever attempted; used to draw the
+      // dim trail behind the active queens.
+      const trace = new Set();
+      const traceKey = (r, c) => `${r},${c}`;
+
+      // ---- helpers ---------------------------------------------------
+      function log(msg, cls) {
+        const div = document.createElement('div');
+        if (cls) div.className = cls;
+        div.textContent = msg;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+        // Cap log to last ~200 lines so the DOM doesn't grow unbounded
+        while (logEl.children.length > 200) logEl.removeChild(logEl.firstChild);
+      }
+      function clearLog() { logEl.textContent = ''; }
+      function fmtStats() {
+        $('stat-steps').textContent = stepsTaken;
+        $('stat-placed').textContent = placeCount;
+        $('stat-back').textContent = backCount;
+      }
+      function setStatus(s) { $('stat-status').textContent = s; }
+
+      function resizeCanvas() {
+        // Render at 2× DPR for sharp edges on hi-dpi displays.
+        const cssW = canvas.clientWidth || canvas.parentElement.clientWidth;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = canvas.width;
+        canvas.style.height = canvas.style.width;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function drawBoard() {
+        if (!mod) return;
+        const N = mod._nqueens_size();
+        if (N <= 0) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        resizeCanvas();
+        const cssSize = canvas.clientWidth;
+        const cell = cssSize / N;
+
+        // 1. checker pattern
+        for (let r = 1; r <= N; r++) {
+          for (let c = 1; c <= N; c++) {
+            ctx.fillStyle = (r + c) % 2 === 0 ? '#f0d9b5' : '#b58863';
+            ctx.fillRect((c - 1) * cell, (r - 1) * cell, cell, cell);
+          }
+        }
+
+        // 2. trace dots (all cells we ever attempted)
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.15)';
+        for (const k of trace) {
+          const [r, c] = k.split(',').map(Number);
+          ctx.beginPath();
+          ctx.arc((c - 0.5) * cell, (r - 0.5) * cell, cell * 0.08, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 3. queens currently on the board
+        const total = mod._nqueens_num_queens();
+        ctx.font = `${Math.floor(cell * 0.65)}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < total; i++) {
+          const r = mod._nqueens_queen_row(i);
+          const c = mod._nqueens_queen_col(i);
+          const isRecent = (r === lastMoveRow && c === lastMoveCol);
+          ctx.fillStyle = isRecent ? '#2563eb' : '#1f2937';
+          ctx.fillText('♛', (c - 0.5) * cell, (r - 0.5) * cell);
+        }
+
+        // 4. board border
+        ctx.strokeStyle = '#71717a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, cssSize, cssSize);
+      }
+
+      // ---- driver actions -------------------------------------------
+      function reset() {
+        if (!mod) return;
+        const N = parseInt($('n').value, 10);
+        const ok = mod._nqueens_init(N);
+        if (!ok) { log(`init failed for N=${N}`); return; }
+        lastMoveRow = lastMoveCol = -1;
+        stepsTaken = placeCount = backCount = 0;
+        trace.clear();
+        clearLog();
+        log(`Initialised N=${N}`);
+        setStatus('idle');
+        $('step').disabled = false;
+        $('solve').disabled = false;
+        fmtStats();
+        drawBoard();
+      }
+
+      function singleStep() {
+        if (!mod) return false;
+        if (mod._nqueens_done()) return false;
+
+        const code = mod._nqueens_step();
+        stepsTaken += 1;
+
+        if (code === 1) {
+          // placed
+          placeCount += 1;
+          const idx = mod._nqueens_num_queens() - 1;
+          lastMoveRow = mod._nqueens_queen_row(idx);
+          lastMoveCol = mod._nqueens_queen_col(idx);
+          trace.add(traceKey(lastMoveRow, lastMoveCol));
+          log(`place (${lastMoveRow},${lastMoveCol})`, 'place');
+        } else if (code === 2) {
+          // backtracked
+          backCount += 1;
+          log(`backtrack`, 'back');
+          lastMoveRow = lastMoveCol = -1;
+        } else if (code === 3) {
+          log(`✓ solution found in ${stepsTaken} steps`, 'done');
+          setStatus('solved');
+          $('step').disabled = true;
+          $('solve').disabled = true;
+          fmtStats();
+          drawBoard();
+          return false;
+        } else if (code === 4) {
+          log(`✗ no solution`, 'done');
+          setStatus('no solution');
+          $('step').disabled = true;
+          $('solve').disabled = true;
+          fmtStats();
+          drawBoard();
+          return false;
+        } else {
+          // 0 = already finished
+          return false;
+        }
+        fmtStats();
+        drawBoard();
+        return true;
+      }
+
+      function startSolveLoop() {
+        if (solveTimer) return;
+        setStatus('solving…');
+        const tick = () => {
+          // Run a batch of steps proportional to speed slider, then yield.
+          const speed = parseInt($('speed').value, 10);
+          let i = 0;
+          const batch = Math.max(1, Math.floor(speed / 10));
+          let alive = true;
+          while (i < batch && alive) { alive = singleStep(); i++; }
+          if (alive) {
+            // ms between batches: faster speed = less delay
+            const delay = Math.max(0, 200 - speed);
+            solveTimer = setTimeout(tick, delay);
+          } else {
+            solveTimer = null;
+          }
+        };
+        tick();
+      }
+
+      // ---- bind UI ---------------------------------------------------
+      $('n').addEventListener('input', (e) => {
+        $('nval').textContent = e.target.value;
+        if (solveTimer) { clearTimeout(solveTimer); solveTimer = null; }
+        reset();
+      });
+      $('speed').addEventListener('input', (e) => {
+        $('speedval').textContent = e.target.value;
+      });
+      $('reset').addEventListener('click', () => {
+        if (solveTimer) { clearTimeout(solveTimer); solveTimer = null; }
+        reset();
+      });
+      $('step').addEventListener('click', () => {
+        if (solveTimer) { clearTimeout(solveTimer); solveTimer = null; setStatus('paused'); }
+        singleStep();
+      });
+      $('solve').addEventListener('click', () => {
+        if (solveTimer) { clearTimeout(solveTimer); solveTimer = null; setStatus('paused'); return; }
+        startSolveLoop();
+      });
+      window.addEventListener('resize', drawBoard);
+
+      // ---- bootstrap -------------------------------------------------
+      // The Emscripten loader exposes createNqueensModule() globally.
+      if (typeof createNqueensModule !== 'function') {
+        log('FATAL: nqueens.js failed to load');
+        return;
+      }
+      createNqueensModule().then((m) => {
+        mod = m;
+        log(`WASM loaded (${m.HEAPU8.length / 1024 | 0} KB heap)`);
+        reset();
+      }).catch((err) => {
+        log(`WASM load failed: ${err && err.message ? err.message : String(err)}`);
+      });
+    })();
+  </script>
+</body>
+</html>

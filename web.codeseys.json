@@ -9,7 +9,7 @@
     "year": 2020
   },
   "title": "CSE 101 — Algorithms (UCSC, Winter 2020)",
-  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. The original C++ implementations live alongside in this same repo (hw1-hw4/, bst-codes/, binary-heap/, etc.); the demos in /embeds rewrite the same algorithms in TypeScript with step-by-step animation so the algorithm itself is visible — backtracking, AVL rotations, BFS expansion.",
+  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. The N-Queens demo runs the original course C++ unmodified — Board.cpp + Queens.cpp from hw2/NQueens/ — compiled to WebAssembly with a thin step-by-step iterator shim. The AVL Wordrange demo currently uses a TypeScript reimplementation; a WASM port from hw3/Wordrange/AVL.cpp is on the roadmap.",
   "tags": [
     "algorithms",
     "data-structures",
@@ -17,16 +17,17 @@
     "backtracking",
     "bfs",
     "visualization",
-    "cpp"
+    "cpp",
+    "webassembly"
   ],
   "completionLevel": "works",
   "defaultAssetId": "nqueens",
   "assets": [
     {
       "id": "nqueens",
-      "title": "HW2 — N-Queens Backtracker",
+      "title": "HW2 — N-Queens (real C++ → WASM)",
       "group": "Demos",
-      "description": "Place N queens on an N×N board such that no two attack each other. Watch the backtracker place queens column-by-column, with each conflict detection and unwinding step animated.",
+      "description": "Place N queens on an N×N board such that no two attack each other. The Board / Queens classes from the original CSE 101 homework are compiled to WebAssembly — the only thing JavaScript adds is a step-driver and the canvas renderer. Watch the backtracker place queens column-by-column with each conflict and unwinding step animated.",
       "embed": {
         "kind": "static-html",
         "entry": "nqueens.html"
@@ -45,7 +46,9 @@
   ],
   "build": {
     "ci": true,
-    "workflow": ".github/workflows/build-web-asset.yml"
+    "workflow": ".github/workflows/build-web-asset.yml",
+    "script": "scripts/build-embeds.sh",
+    "tools": ["emsdk"]
   },
   "delivery": {
     "url": "https://assets-r2.codeseys.io/cse-101/90f0d83/",
