@@ -15,7 +15,7 @@ jobs:
     with:
       manifest: web.codeseys.json
       source-dir: 'embeds'
-    secrets: inherit
     permissions:
       contents: write
       pull-requests: write
+      id-token: write    # Mint OIDC tokens for embed-upload auth
