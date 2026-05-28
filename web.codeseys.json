@@ -8,8 +8,8 @@
     "title": "Algorithms",
     "year": 2020
   },
-  "title": "CSE 101 — Algorithms (UCSC, Winter 2020)",
-  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. The original C++ implementations live alongside in this same repo (hw1-hw4/, bst-codes/, binary-heap/, etc.); the demos in /embeds rewrite the same algorithms in TypeScript with step-by-step animation so the algorithm itself is visible — backtracking, AVL rotations, BFS expansion.",
+  "title": "CSE 101 \u2014 Algorithms (UCSC, Winter 2020)",
+  "description": "Interactive visualizations of the data structures and algorithms from Patricia Lopez's CSE 101. The original C++ implementations live alongside in this same repo (hw1-hw4/, bst-codes/, binary-heap/, etc.); the demos in /embeds rewrite the same algorithms in TypeScript with step-by-step animation so the algorithm itself is visible \u2014 backtracking, AVL rotations, BFS expansion.",
   "tags": [
     "algorithms",
     "data-structures",
@@ -24,9 +24,9 @@
   "assets": [
     {
       "id": "nqueens",
-      "title": "HW2 — N-Queens Backtracker",
+      "title": "HW2 \u2014 N-Queens Backtracker",
       "group": "Demos",
-      "description": "Place N queens on an N×N board such that no two attack each other. Watch the backtracker place queens column-by-column, with each conflict detection and unwinding step animated.",
+      "description": "Place N queens on an N\u00d7N board such that no two attack each other. Watch the backtracker place queens column-by-column, with each conflict detection and unwinding step animated.",
       "embed": {
         "kind": "static-html",
         "entry": "nqueens.html"
@@ -34,7 +34,7 @@
     },
     {
       "id": "avl-wordrange",
-      "title": "HW3 — AVL Wordrange",
+      "title": "HW3 \u2014 AVL Wordrange",
       "group": "Demos",
       "description": "Self-balancing BST of strings. Insert words and watch the tree rotate (LL/RR/LR/RL) to maintain balance. Range queries highlight every node lexicographically between two endpoints.",
       "embed": {
@@ -50,6 +50,7 @@
   "delivery": {
     "url": "https://assets-r2.codeseys.io/cse-101/9bf9a34/",
     "version": "9bf9a34",
-    "sizeBytes": 22161
+    "sizeBytes": 22161,
+    "mode": "runtime-r2"
   }
 }
