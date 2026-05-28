@@ -48,12 +48,14 @@
     "ci": true,
     "workflow": ".github/workflows/build-web-asset.yml",
     "script": "scripts/build-embeds.sh",
-    "tools": ["emsdk"]
+    "tools": [
+      "emsdk"
+    ]
   },
   "delivery": {
-    "url": "https://assets-r2.codeseys.io/cse-101/90f0d83/",
-    "version": "90f0d83",
-    "sizeBytes": 22161,
+    "url": "https://assets-r2.codeseys.io/cse-101/31da593/",
+    "version": "31da593",
+    "sizeBytes": 46977,
     "mode": "runtime-r2"
   }
 }
